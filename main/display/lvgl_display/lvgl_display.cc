@@ -266,7 +266,7 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
 
         // Check low battery popup only when clock tick event is triggered
         // Because when initializing, the battery level is not ready yet.
-        if (low_battery_popup_ != nullptr && !update_all) {
+       if (false && low_battery_popup_ != nullptr && !update_all) {
             if (strcmp(icon, MATERIAL_SYMBOLS_BATTERY_ANDROID_0) == 0 && discharging) {
                 if (lv_obj_has_flag(low_battery_popup_,
                                     LV_OBJ_FLAG_HIDDEN)) {  // Show if low battery popup is hidden
