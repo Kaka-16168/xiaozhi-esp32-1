@@ -295,7 +295,7 @@ def _print_wake_word_list(wake_words: list[dict[str, object]]) -> None:
             f"{str(item['model']):<{model_width}}  "
             f"{str(item['phrase']):<{phrase_width}}  {targets}"
         )
-    print("\nSpecial values: nihaoxiaozhi, hiesp, disabled")
+    print("\nSpecial values: nihaoxiaozhi, hiesp, disabled, 卡卡(ka ka)")
 
 
 def _board_supports_wake_word(
@@ -331,6 +331,24 @@ def _wake_word_sdkconfig_options(
 ) -> tuple[str, list[str], list[str]]:
     """Map a wake-word model to implementation and model Kconfig options."""
     normalized = wake_word.strip().casefold().replace("-", "_")
+    
+    # ==================== 新增：支持自定义唤醒词"卡卡" ====================
+    raw_clean = wake_word.strip()
+    if raw_clean in {"ka ka", "kaka", "ka_ka", "卡卡"}:
+        options = [
+            "CONFIG_WAKE_WORD_DISABLED=n",
+            "CONFIG_USE_ESP_WAKE_WORD=n",
+            "CONFIG_USE_AFE_WAKE_WORD=n",
+            "CONFIG_USE_CUSTOM_WAKE_WORD=y",
+            'CONFIG_CUSTOM_WAKE_WORD="ka ka"',
+            'CONFIG_CUSTOM_WAKE_WORD_DISPLAY="卡卡"',
+            # 强制关闭常见冲突模型
+            "CONFIG_SR_WN_WN9_HIESP=n",
+            "CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS=n"
+        ]
+        return "ka ka", options, ["CONFIG_USE_CUSTOM_WAKE_WORD"]
+    # ==================================================================
+
     if normalized == "nihaoxiaozhi":
         normalized = (
             "wn9s_nihaoxiaozhi"
@@ -358,7 +376,7 @@ def _wake_word_sdkconfig_options(
     if not _WAKE_WORD_MODEL_PATTERN.fullmatch(normalized):
         raise ValueError(
             f"Invalid wake word {wake_word!r}. Use 'disabled', "
-            "'nihaoxiaozhi', 'hiesp', or an ESP-SR model name such as "
+            "'nihaoxiaozhi', 'hiesp', 'ka ka', or an ESP-SR model name such as "
             "'wn9_jarvis_tts'."
         )
     if target in _LITE_WAKE_WORD_TARGETS and not normalized.startswith("wn9s_"):
@@ -388,21 +406,14 @@ _DISPLAY_STYLE_SYMBOLS = {
     "emote": "CONFIG_USE_EMOTE_MESSAGE_STYLE",
 }
 _DYNAMIC_CAMERA_MIRROR_BOARD_CONFIGS = {
-    # These boards intentionally change orientation at runtime according to the
-    # detected sensor or persisted device state. A compile-time override would
-    # be misleading because that runtime decision would win afterwards.
     "CONFIG_BOARD_TYPE_DF_S3_AI_CAM",
     "CONFIG_BOARD_TYPE_ESP_SPARKBOT",
     "CONFIG_BOARD_TYPE_M5STACK_ATOM_S3R_CAM_M12_ECHO_BASE",
     "CONFIG_BOARD_TYPE_SEEED_STUDIO_SENSECAP_WATCHER",
 }
 _OPTIONAL_CAMERA_ENABLE_SYMBOLS = {
-    # ESP-VOCAT only constructs EspVideo when its optional USB UVC transport
-    # is enabled. Do not advertise mirror controls for the camera-less default
-    # build, but expose them automatically for an explicitly enabled variant.
     "CONFIG_BOARD_TYPE_ESP_VOCAT": "CONFIG_ESP_VIDEO_ENABLE_USB_UVC_VIDEO_DEVICE",
 }
-# Match both `new Esp32Camera` and `new (std::nothrow) Esp32Camera` (and EspVideo).
 _COMMON_CAMERA_CONSTRUCTOR_RE = re.compile(
     r"\bnew(?:\s*\(\s*std::nothrow\s*\))?\s+Esp(?:32Camera|Video)\b"
 )
@@ -535,8 +546,6 @@ def _build_option_definitions(
         })
         break
 
-    # Message styles are implemented by the color LCD display path. OLED and
-    # no-display boards deliberately do not expose a selector that has no effect.
     if re.search(r"\b[A-Za-z0-9_]*LcdDisplay\b", source):
         style_choice = _kconfig_choice("DISPLAY_STYLE")
         emote_boards = _kconfig_config_board_dependencies("USE_EMOTE_MESSAGE_STYLE")
@@ -578,8 +587,6 @@ def _build_option_definitions(
             ],
         })
 
-    # ESP32-P4 obtains networking through a companion chip and cannot enable
-    # the local ESP-BluFi stack selected by this project option.
     if target != "esp32p4" and ("wifi_board.h" in source or re.search(r"\bWifiBoard\b", source)):
         definitions.append({
             "key": "wifi_provisioning",
@@ -623,7 +630,6 @@ def _build_option_definitions(
     for key, value in configured_defaults.items():
         by_key[key]["default"] = value
 
-    # Validate board defaults through the same path used for caller input.
     _normalize_build_options(definitions, {})
     return definitions
 
@@ -680,9 +686,6 @@ def _build_options_sdkconfig(
         for choice in by_key["display_model"]["choices"]:
             result.append(f"CONFIG_{choice['value']}={'y' if choice['value'] == selected else 'n'}")
         if isinstance(selected, str) and selected.startswith("LCD_"):
-            # LCD_CUSTOM is intentionally not exposed in the cloud UI because
-            # it requires source-level panel configuration, but it is still a
-            # sibling in the Kconfig choice and must be disabled explicitly.
             result.append("CONFIG_LCD_CUSTOM=n")
 
     if "display_style" in options:
@@ -847,12 +850,7 @@ def _collect_variants(
     config_filename: str = "config.json",
     idf_version: tuple[int, int, int] = (6, 0, 0),
 ) -> list[dict[str, Any]]:
-    """Traverse all boards under main/boards, collect variant information.
-
-    Return example:
-        [{"board": "bread-compact-ml307", "name": "bread-compact-ml307", "full_name": "bread-compact-ml307"}, ...]
-        [{"board": "waveshare/esp32-p4-nano", "name": "esp32-p4-nano-10.1-a", "full_name": "waveshare-esp32-p4-nano-10.1-a"}, ...]
-    """
+    """Traverse all boards under main/boards, collect variant information."""
     variants: list[dict[str, str]] = []
     errors: list[str] = []
     type_owners: dict[str, str] = {}
@@ -884,9 +882,7 @@ def _collect_variants(
             else:
                 type_owners[reported_type] = board
 
-            # Check manufacturer consistency with directory structure
             if "/" in board:
-                # Board is in a subdirectory (e.g., waveshare/esp32-p4-nano)
                 expected_manufacturer = board.split("/")[0]
                 if not manufacturer:
                     errors.append(
@@ -899,7 +895,6 @@ def _collect_variants(
                         f"directory is '{expected_manufacturer}/' but config.json has \"{manufacturer}\""
                     )
             else:
-                # Board is directly under boards/ directory
                 if manufacturer:
                     errors.append(
                         f"{cfg_path}: Board is not in a manufacturer subdirectory, "
@@ -957,8 +952,6 @@ def _collect_variants(
         details = "\n".join(f"  - {error}" for error in errors)
         raise ValueError(f"Invalid board configuration:\n{details}")
 
-    # Enrich only after the compatibility identities above are validated, so
-    # duplicate/malformed config errors remain the primary actionable failure.
     for variant in variants:
         cfg_path = _BOARDS_DIR / variant["board"] / config_filename
         with cfg_path.open(encoding="utf-8") as file:
@@ -1037,7 +1030,6 @@ def _load_representative_variants(
         _normalize_build_options(variant["build_options"], options)
         if options:
             variant["ci_build_options"] = options
-            # Keep CI artifact identities separate from OTA board names.
             variant["ci_name"] = f"{variant['full_name']}-ci"
         selected.append(variant)
     return selected
@@ -1046,11 +1038,7 @@ def _load_representative_variants(
 def _select_variants_for_changes(
     variants: list[dict[str, Any]], changed_files: list[str]
 ) -> list[dict[str, Any]]:
-    """Select representative builds plus every directly affected board variant.
-
-    Board ownership is resolved using the longest known board directory prefix,
-    so nested paths such as waveshare/esp32-c6-touch-amoled-2.06 are preserved.
-    """
+    """Select representative builds plus every directly affected board variant."""
     known_boards = sorted({variant["board"] for variant in variants}, key=len, reverse=True)
     affected: set[str] = set()
     common_changed = False
@@ -1089,8 +1077,6 @@ def _select_variants_for_changes(
                 affected.add(board)
 
     selected = _load_representative_variants(variants) if common_changed else []
-    # An option-specific representative (e.g. Ethernet) does not replace the
-    # board's default release variant (Wi-Fi) when that board itself changes.
     selected_defaults = {
         (variant["board"], variant["name"])
         for variant in selected if not variant.get("ci_build_options")
@@ -1271,9 +1257,6 @@ def _resolve_board_config(
     )
 
 
-# Kconfig "select" entries are not automatically applied when we simply append
-# sdkconfig lines from config.json, so add the required dependencies here to
-# mimic menuconfig behaviour.
 _AUTO_SELECT_RULES: dict[str, list[str]] = {
     "CONFIG_USE_ESP_BLUFI_WIFI_PROVISIONING": [
         "CONFIG_BT_ENABLED=y",
@@ -1284,8 +1267,6 @@ _AUTO_SELECT_RULES: dict[str, list[str]] = {
     ],
 }
 
-# sdkconfig.defaults.esp32s3 keeps a 1MB LVGL TLSF pool for PSRAM. Without
-# PSRAM that pool becomes a .dram0.bss array and overflows internal SRAM.
 _NO_SPIRAM_LVGL_OPTIONS = [
     "CONFIG_LV_USE_BUILTIN_MALLOC=n",
     "CONFIG_LV_USE_CLIB_MALLOC=y",
@@ -1296,14 +1277,10 @@ def _apply_auto_selects(sdkconfig_append: list[str]) -> list[str]:
     """Apply hardcoded auto-select rules to sdkconfig_append."""
     items = list(sdkconfig_append)
 
-    # Apply auto-select rules
     for key, deps in _AUTO_SELECT_RULES.items():
         for entry in sdkconfig_append:
             name, _, value = entry.partition("=")
             if name == key and value.lower().startswith("y"):
-                # A board preset may explicitly disable a dependency. Kconfig's
-                # select would override it, so the generated defaults fragment
-                # must do the same instead of keeping the earlier value.
                 items = _merge_sdkconfig_options(items, deps)
                 break
 
@@ -1490,9 +1467,6 @@ def _validate_configured_options(options: list[str], option_name: str) -> None:
         if expected == "y":
             accepted = bool(re.search(rf"^{re.escape(key)}=y$", content, re.MULTILINE))
         elif expected == "n":
-            # Kconfig may omit a disabled symbol entirely when its dependency
-            # is not satisfied. Absence is equivalent to "not set"; only an
-            # accepted y value contradicts a requested n value.
             accepted = not bool(re.search(
                 rf"^{re.escape(key)}=y$",
                 content,
@@ -1520,17 +1494,7 @@ def build_board(
     build_options: Optional[dict[str, object]] = None,
     idf_version: tuple[int, int, int] = (6, 0, 0),
 ) -> None:
-    """Compile one specified variant of the specified board type.
-
-    Args:
-        board_type: directory name under main/boards
-        config_filename: config.json name (default: config.json)
-        name_filter: build["name"] to compile
-        create_zip: package merged-binary.bin under releases/ when true
-        language: optional locale such as zh-CN; defaults to en-US when omitted
-        wake_word: optional model/alias; otherwise selected from language and board support
-        build_options: optional semantic, board-validated option values
-    """
+    """Compile one specified variant of the specified board type."""
     cfg_path = _BOARDS_DIR / Path(board_type) / config_filename
     if not cfg_path.exists():
         print(f"[WARN] {cfg_path} does not exist, skipping {board_type}")
@@ -1565,7 +1529,6 @@ def build_board(
         name = _get_reported_name(build)
         final_name = _get_release_full_name(manufacturer, build)
 
-        # Process sdkconfig_append
         build_sdkconfig_append = build.get("sdkconfig_append", [])
         explicit_board_cfg = _extract_board_config_from_sdkconfig_append(build_sdkconfig_append)
         board_type_config = _resolve_board_config(
@@ -1581,9 +1544,6 @@ def build_board(
             )
             sdkconfig_append = list(build_sdkconfig_append)
         else:
-            # Replace a stale/misspelled explicit symbol with the canonical
-            # Kconfig symbol. Listing and building must resolve board identity
-            # through the same path or their exposed options can diverge.
             sdkconfig_append = [f"{board_type_config}=y"]
             sdkconfig_append.extend(
                 item for item in build_sdkconfig_append
@@ -1631,8 +1591,6 @@ def build_board(
         user_options.extend(wake_word_options)
         validation_symbols.append((wake_word_symbols, "--wake-word"))
 
-        # A build entry may carry semantic defaults to preserve an existing
-        # board-specific behavior after it moves out of hardcoded C++.
         if build_options is not None or "build_options" in build:
             selected_build_options = _normalize_build_options(
                 option_definitions,
@@ -1644,6 +1602,19 @@ def build_board(
                 _sdkconfig_assignments(build_sdkconfig_append),
             )
             user_options.extend(build_option_sdkconfig)
+
+        # ==================== 新增：清理 config.json 中的冲突项 ====================
+        ignore_prefixes = (
+            "CONFIG_LANGUAGE_",
+            "CONFIG_SR_WN_",
+            "CONFIG_USE_AFE_WAKE_WORD",
+            "CONFIG_USE_ESP_WAKE_WORD",
+            "CONFIG_USE_CUSTOM_WAKE_WORD",
+            "CONFIG_CUSTOM_WAKE_WORD",
+            "CONFIG_WAKE_WORD_DISABLED"
+        )
+        sdkconfig_append = [item for item in sdkconfig_append if not item.startswith(ignore_prefixes)]
+        # ======================================================================
 
         sdkconfig_append = _merge_sdkconfig_options(
             sdkconfig_append,
@@ -1682,11 +1653,9 @@ def build_board(
             _validate_configured_symbols(symbols, option_name)
         _validate_configured_options(build_option_sdkconfig, "--build-options-json")
 
-        # build.name is the compatibility-sensitive OTA-reported board identity.
         _emit_build_stage("compiling")
         _run_idf("build", preview=preview)
 
-        # merge-bin
         _emit_build_stage("packaging")
         merge_bin(preview)
 
@@ -1780,7 +1749,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         metavar="MODEL",
         help=(
             "Wake-word model (for example wn9_jarvis_tts), "
-            "'nihaoxiaozhi', 'hiesp', or 'disabled'. Defaults to nihaoxiaozhi "
+            "'nihaoxiaozhi', 'hiesp', 'ka ka' or 'disabled'. Defaults to nihaoxiaozhi "
             "for zh-CN/zh-TW and hiesp otherwise; disabled on unsupported boards"
         ),
     )
@@ -1924,7 +1893,6 @@ def main(argv: Optional[list[str]] = None) -> None:
             parser.error("--build-options-json must contain a JSON object")
         parsed_build_options = raw_build_options
 
-    # Check board_type in CMakeLists
     if board_type_input != "all" and not _board_type_exists(board_type_input):
         print(f"[ERROR] board_type {board_type_input} not found in main/CMakeLists.txt", file=sys.stderr)
         sys.exit(1)
