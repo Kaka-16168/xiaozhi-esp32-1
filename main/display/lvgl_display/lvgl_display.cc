@@ -1,3 +1,17 @@
+#include "lvgl_display.h"
+#include <cstring>
+#include <ctime>
+#include <algorithm>
+#include <vector>
+#include "application.h"
+#include "board.h"
+#include "display/lcd_display.h" 
+#include "esp_log.h"
+#include "esp_pm.h"
+// 如果你的原文件还包含其他特定的 audio_codec.h 等，请在此处保留
+
+static const char* TAG = "LvglDisplay";
+
 void LvglDisplay::UpdateStatusBar(bool update_all) {
     auto& app = Application::GetInstance();
     auto& board = Board::GetInstance();
@@ -67,7 +81,6 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
         }
 
         // ===== 低电量弹窗逻辑（已禁用） =====
-        // 【关键修改】：在条件最前面加上 false &&
         if (false && low_battery_popup_ != nullptr && !update_all) {
             if (strcmp(icon, MATERIAL_SYMBOLS_BATTERY_ANDROID_0) == 0 && discharging) {
                 if (lv_obj_has_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN)) {
@@ -82,7 +95,6 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
                 }
             }
         }
-        // ===================================
     }
 
     // Update network icon every 10 seconds
@@ -90,11 +102,8 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
     if (update_all || seconds_counter++ % 10 == 0) {
         auto device_state = Application::GetInstance().GetDeviceState();
         static const std::vector<DeviceState> allowed_states = {
-            kDeviceStateIdle,
-            kDeviceStateStarting,
-            kDeviceStateWifiConfiguring,
-            kDeviceStateListening,
-            kDeviceStateActivating,
+            kDeviceStateIdle, kDeviceStateStarting, kDeviceStateWifiConfiguring,
+            kDeviceStateListening, kDeviceStateActivating,
         };
         if (std::find(allowed_states.begin(), allowed_states.end(), device_state) != allowed_states.end()) {
             icon = board.GetNetworkStateIcon();
