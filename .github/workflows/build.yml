@@ -20,10 +20,16 @@ jobs:
         with:
           ref: ${{ github.sha }}
 
-      - name: Build otto-robot and merge binary
-        shell: bash  # 关键修复：强制使用 bash 环境
+      - name: Force Clean Build Cache
+        shell: bash
         run: |
-          . $IDF_PATH/export.sh  # 关键修复：用 POSIX 的 '.' 替代 'source'
+          rm -rf build sdkconfig
+          echo "Build cache cleared."
+
+      - name: Build otto-robot and merge binary
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
           python scripts/build.py otto-robot
 
       - name: Rename merged binary for easy identification
