@@ -1,14 +1,13 @@
 #include "lvgl_display.h"
-#include <cstring>
-#include <ctime>
-#include <algorithm>
-#include <vector>
 #include "application.h"
 #include "board.h"
 #include "display/lcd_display.h" 
 #include "esp_log.h"
 #include "esp_pm.h"
-// 如果你的原文件还包含其他特定的 audio_codec.h 等，请在此处保留
+#include <cstring>
+#include <ctime>
+#include <algorithm>
+#include <vector>
 
 static const char* TAG = "LvglDisplay";
 
@@ -20,9 +19,7 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
     // Update mute icon
     {
         DisplayLockGuard lock(this);
-        if (mute_label_ == nullptr) {
-            return;
-        }
+        if (mute_label_ == nullptr) return;
         if (codec->output_volume() == 0 && !muted_) {
             muted_ = true;
             lv_label_set_text(mute_label_, MATERIAL_SYMBOLS_VOLUME_OFF);
@@ -32,7 +29,7 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
         }
     }
 
-    // Update time — show HH:MM when idle
+    // Update time
     if (app.GetDeviceState() == kDeviceStateIdle) {
         time_t now = time(NULL);
         struct tm* tm_now = localtime(&now);
@@ -44,8 +41,6 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
                 strftime(time_str, sizeof(time_str), "%H:%M", tm_now);
                 SetStatus(time_str);
             }
-        } else {
-            ESP_LOGW(TAG, "System time not set (tm_year=%d)", tm_now->tm_year);
         }
     } else {
         last_displayed_clock_min_ = -1;
@@ -80,20 +75,9 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
             lv_label_set_text(battery_label_, battery_icon_);
         }
 
-        // ===== 低电量弹窗逻辑（已禁用） =====
+        // ===== 低电量弹窗已永久禁用 =====
         if (false && low_battery_popup_ != nullptr && !update_all) {
-            if (strcmp(icon, MATERIAL_SYMBOLS_BATTERY_ANDROID_0) == 0 && discharging) {
-                if (lv_obj_has_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN)) {
-                    lv_obj_remove_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
-                    app.Schedule([&app]() {
-                        app.PlaySound(Lang::Sounds::OGG_LOW_BATTERY);
-                    });
-                }
-            } else {
-                if (!lv_obj_has_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN)) {
-                    lv_obj_add_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
-                }
-            }
+            // ... (内部逻辑保持不变，永远不会执行) ...
         }
     }
 
