@@ -13,27 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: espressif/idf:v6.1
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
 
-      - name: Force Clean Build Cache
-        shell: bash
-        run: |
-          rm -rf build sdkconfig
-          echo "Build cache cleared."
-
       - name: Build otto-robot and merge binary
-        shell: bash
+        shell: bash  # 关键修复：强制使用 bash 环境
         run: |
-          . $IDF_PATH/export.sh
+          . $IDF_PATH/export.sh  # 关键修复：用 POSIX 的 '.' 替代 'source'
           python scripts/build.py otto-robot
 
-      - name: Rename merged binary
+      - name: Rename merged binary for easy identification
         shell: bash
-        run: cp build/merged-binary.bin build/otto-robot-merged.bin
+        run: |
+          cp build/merged-binary.bin build/otto-robot-merged.bin
 
       - name: Upload merged firmware
         uses: actions/upload-artifact@v4
