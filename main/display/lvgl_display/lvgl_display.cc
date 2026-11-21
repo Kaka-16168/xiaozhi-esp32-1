@@ -1,4 +1,4 @@
-#include "lvgl_display.h"
+-#include "lvgl_display.h"
 #include "application.h"
 #include "board.h"
 #include "display/lcd_display.h" 
@@ -76,9 +76,22 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
         }
 
         // ===== 低电量弹窗已永久禁用 =====
+        // 通过添加 false && 使得整个 if 块永远不会执行，彻底关闭弹窗和提示音
         if (false && low_battery_popup_ != nullptr && !update_all) {
-            // ... (内部逻辑保持不变，永远不会执行) ...
+            if (strcmp(icon, MATERIAL_SYMBOLS_BATTERY_ANDROID_0) == 0 && discharging) {
+                if (lv_obj_has_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN)) {
+                    lv_obj_remove_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
+                    app.Schedule([&app]() {
+                        app.PlaySound(Lang::Sounds::OGG_LOW_BATTERY);
+                    });
+                }
+            } else {
+                if (!lv_obj_has_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN)) {
+                    lv_obj_add_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
+                }
+            }
         }
+        // ===================================
     }
 
     // Update network icon every 10 seconds
