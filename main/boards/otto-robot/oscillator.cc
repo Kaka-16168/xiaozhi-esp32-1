@@ -29,7 +29,11 @@ Oscillator::~Oscillator() {
 void Oscillator::Attach(int pin, bool rev) {
     pin_ = pin;
     rev_ = rev;
-    channel_ = next_free_channel++;
+    
+    // 【关键修改】枚举类型不能直接使用 ++，必须先转 int 加 1，再转回枚举
+    channel_ = next_free_channel;
+    next_free_channel = (ledc_channel_t)((int)next_free_channel + 1);
+    
     timer_ = LEDC_TIMER_0;
 
     // 配置 50Hz 舵机 PWM 定时器
