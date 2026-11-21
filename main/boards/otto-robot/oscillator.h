@@ -9,10 +9,15 @@ public:
     ~Oscillator();
     
     void Attach(int pin, bool rev = false);
+    void Detach();
     void Write(int angle);
     void SetTarget(int angle);
     int GetCurrent();
     bool NextSample();
+    
+    // 补全缺失的接口
+    void SetLimiter(int limit);
+    void DisableLimiter();
 
 private:
     int pin_;
@@ -20,11 +25,13 @@ private:
     bool rev_;
     
     ledc_channel_t channel_;
-    ledc_timer_t timer_;
     
     int current_angle_;
     int target_angle_;
     unsigned long previous_millis_;
+    
+    // 补全缺失的限幅变量
+    int diff_limit_; 
 };
 
 #endif // _OSCILLATOR_H_
