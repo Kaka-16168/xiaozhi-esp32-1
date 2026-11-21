@@ -20,9 +20,16 @@ enum OttoCameraType {
     OTTO_CAMERA_UNKNOWN = 99,
 };
 
+// 补全缺失的 PID 定义
 #define OV2640_PID_1 0x2640
 #define OV2640_PID_2 0x2626
 #define OV3660_PID 0x3660
+#define OTTO_OV2640_PID 0x2640
+#define OTTO_OV3660_PID 0x3660
+
+// 补全缺失的摄像头引脚（无摄像头版本设为 NC）
+#define CAMERA_PWDN GPIO_NUM_NC
+#define CAMERA_RESET GPIO_NUM_NC
 
 struct HardwareConfig {
     gpio_num_t power_charge_detect_pin;
@@ -94,7 +101,6 @@ constexpr HardwareConfig NON_CAMERA_VERSION_CONFIG = {
     .power_charge_detect_pin = GPIO_NUM_21,
     .power_adc_unit = ADC_UNIT_2,
     .power_adc_channel = ADC_CHANNEL_3,
-    // 【关键修改】避开 GPIO34-39 禁用区间
     .right_leg_pin = GPIO_NUM_41,  
     .right_foot_pin = GPIO_NUM_42, 
     .left_leg_pin = GPIO_NUM_17,
@@ -114,7 +120,6 @@ constexpr HardwareConfig NON_CAMERA_VERSION_CONFIG = {
     .audio_i2s_spk_gpio_dout = GPIO_NUM_7,
     .audio_i2s_spk_gpio_bclk = GPIO_NUM_15,
     .audio_i2s_spk_gpio_lrck = GPIO_NUM_16,
-    // 【关键修改】避开 Strapping 引脚
     .display_backlight_pin = GPIO_NUM_3,
     .display_mosi_pin = GPIO_NUM_10,
     .display_clk_pin = GPIO_NUM_9,
