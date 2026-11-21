@@ -13,10 +13,8 @@
         "CONFIG_FLASH_DEFAULT_ASSETS=y",
         "CONFIG_SPIRAM=y",
         "CONFIG_SPIRAM_MODE_OCT=y",
-        
         "CONFIG_LANGUAGE_ZH_CN=y",
         "CONFIG_LANGUAGE_EN_US=n",
-        
         "CONFIG_USE_DEVICE_AEC=n",
         "CONFIG_USE_SERVER_AEC=n"
       ]
