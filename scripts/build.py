@@ -340,6 +340,21 @@ def _wake_word_sdkconfig_options(
     elif normalized == "hiesp":
         normalized = "wn9s_hiesp" if target in _LITE_WAKE_WORD_TARGETS else "wn9_hiesp"
 
+    # ===== 新增：拦截自定义唤醒词 =====
+    if normalized in {"ka_ka", "ka ka", "kaka"}:
+        options = [
+            "CONFIG_WAKE_WORD_DISABLED=n",
+            "CONFIG_USE_ESP_WAKE_WORD=n",
+            "CONFIG_USE_AFE_WAKE_WORD=n",
+            "CONFIG_USE_CUSTOM_WAKE_WORD=y",
+            "CONFIG_SR_MN_CN_MULTINET7_QUANT=y",
+            "CONFIG_CUSTOM_WAKE_WORD=\"ka ka\"",
+            "CONFIG_CUSTOM_WAKE_WORD_DISPLAY=\"卡卡\"",
+            "CONFIG_CUSTOM_WAKE_WORD_THRESHOLD=20"
+        ]
+        return "ka ka", options, ["CONFIG_USE_CUSTOM_WAKE_WORD", "CONFIG_SR_MN_CN_MULTINET7_QUANT"]
+    # ==================================
+
     # Every build starts from a fresh sdkconfig. Models default to disabled in
     # ESP-SR; board and target presets must not select a particular model.
     options = [
@@ -358,7 +373,7 @@ def _wake_word_sdkconfig_options(
     if not _WAKE_WORD_MODEL_PATTERN.fullmatch(normalized):
         raise ValueError(
             f"Invalid wake word {wake_word!r}. Use 'disabled', "
-            "'nihaoxiaozhi', 'hiesp', or an ESP-SR model name such as "
+            "'nihaoxiaozhi', 'hiesp', 'ka ka', or an ESP-SR model name such as "
             "'wn9_jarvis_tts'."
         )
     if target in _LITE_WAKE_WORD_TARGETS and not normalized.startswith("wn9s_"):
