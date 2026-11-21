@@ -9,8 +9,8 @@
 #include <algorithm>
 #include <vector>
 
-// 补充关键头文件，确保图标宏和 Lang 命名空间被声明
-#include "material_symbols.h" 
+// 补充缺失的头文件，解决宏和 Lang 未声明的问题
+#include "material_symbols.h"
 #include "assets/lang_config.h"
 
 static const char* TAG = "LvglDisplay";
@@ -80,7 +80,6 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
         }
 
         // ===== 低电量弹窗已永久禁用 =====
-        // 使用 false && 短路，内部逻辑永远不会执行
         if (false && low_battery_popup_ != nullptr && !update_all) {
             if (strcmp(icon, MATERIAL_SYMBOLS_BATTERY_ANDROID_0) == 0 && discharging) {
                 if (lv_obj_has_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN)) {
