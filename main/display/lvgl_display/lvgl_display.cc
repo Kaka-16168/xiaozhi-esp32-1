@@ -13,7 +13,7 @@
 #include "material_symbols.h"
 #include "assets/lang_config.h"
 
-static const char* TAG = "LvglDisplay";
+#static const char* TAG = "LvglDisplay";
 
 void LvglDisplay::UpdateStatusBar(bool update_all) {
     auto& app = Application::GetInstance();
