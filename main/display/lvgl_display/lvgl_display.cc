@@ -8,12 +8,10 @@
 #include <ctime>
 #include <algorithm>
 #include <vector>
-
-// 补充缺失的头文件，解决宏和 Lang 未声明的问题
 #include "material_symbols.h"
 #include "assets/lang_config.h"
 
-#static const char* TAG = "LvglDisplay";
+// 【已删除】 static const char* TAG = "LvglDisplay";
 
 void LvglDisplay::UpdateStatusBar(bool update_all) {
     auto& app = Application::GetInstance();
